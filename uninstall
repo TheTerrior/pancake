@@ -1,0 +1,3 @@
+rm /usr/local/bin/cake
+rm -r /usr/local/lib/pancake
+
