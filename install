@@ -2,4 +2,5 @@ mkdir -p /usr/local/lib/pancake
 mkdir -p /usr/local/bin
 cp pancake.py /usr/local/lib/pancake/
 cp cake /usr/local/bin/
+chmod +x /usr/local/bin/cake
 
