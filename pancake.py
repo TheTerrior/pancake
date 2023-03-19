@@ -35,8 +35,29 @@ def main():
     install = False
     remove = False
     query = False
+    inputs: list[str] = []
 
     for arg in sys.argv[1:]:
+
+        if (not install and remove and query) or \
+                (install and not remove and query) or \
+                (install and remove and not query) or \
+                (install and remove and query):
+            print("error: conflicting options/flags")
+            return
+
+        # handle input case
+        if query and len(inputs) == 0:
+            inputs.append(arg)
+            continue
+        elif query:
+            print("error: too many queries")
+            return
+        if install or remove:
+            inputs.append(arg)
+            continue
+
+        # handle usual case
         match arg:
             case "-h" | "--help":
                 help()
@@ -75,16 +96,23 @@ def main():
                                 query = True
                             case _:
                                 print(f"error: unknown flag '{flag}'")
+                                return
                 else:
                     print("error: invalid syntax")
                     return
 
     # ensure there are no hanging flags/options
     # ensure there are no doubled flags/options (like install and remove)
+    if (not install and remove and query) or \
+            (install and not remove and query) or \
+            (install and remove and not query) or \
+            (install and remove and query):
+        print("error: conflicting options/flags")
+        return
 
-
-
-
+    if (install or remove or query) and len(inputs) == 0:
+        print("error: missing inputs")
+        return
 
         
 if __name__ == "__main__":
