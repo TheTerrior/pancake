@@ -15,6 +15,36 @@ def testing():
 
     print(output)
 
+
+def flatpak_install(install: list[str]):
+    results: list[str] = []
+    for query in install:
+        output_bytes = subprocess.check_output(['flatpak', 'search', query])
+        line = output_bytes.decode('utf-8').splitlines()[0]
+        splits = line.split('\t')
+        if len(splits) != 6:
+            print(f"error: no matches found for '{query}'")
+            return
+        results.append(splits[2])
+    print(f"Package ({len(results)})\n")
+    for result in results:
+        print(result)
+    print()
+    user_input = input("Proceed with installation? [Y/n] ")
+    if user_input.lower().strip() != "y":
+        return
+
+
+def flatpak_query(query: str):
+    process = Popen(['flatpak', 'search', query])
+    process.wait()
+
+
+def flatpak_update():
+    process = Popen(['flatpak', 'update'])
+    process.wait()
+
+
 def help():
     print("usage:  pancake <option> [...]\n"
           + "options:\n"
@@ -113,6 +143,13 @@ def main():
     if (install or remove or query) and len(inputs) == 0:
         print("error: missing inputs")
         return
+
+    if update:
+        flatpak_update()
+    elif query:
+        flatpak_query(inputs[0])
+    elif install:
+        flatpak_install(inputs)
 
         
 if __name__ == "__main__":
