@@ -23,11 +23,26 @@ def testing():
 
 def pancake_generate_symlinks():
     global config
-    print("TODO generate symlinks")
+
+    results: list[str] = []
+    output_bytes = subprocess.check_output(['flatpak', 'list', '--app'])
+    output = output_bytes.decode('utf-8')
+    if len(output) == 0:
+        print("No apps installed")
+        return
+    splits = output.splitlines()
+    for line in splits:
+        results.append(line.split("\t")[1])
+    print(f"Installed apps: {results}")
+    print("TODO, feature not implemented yet")
+    return
+
+    #for pair in config.items():
 
 
 def pancake_read_config():
     global config
+
     home = os.path.expanduser('~')
     try:
         with open(home + "/.config/pancake/symlinks.ini", "r") as file:
@@ -40,6 +55,7 @@ def pancake_read_config():
 
 def pancake_write_config():
     global config
+
     configpath = os.path.expanduser('~') + "/.config/pancake"
     os.makedirs(configpath, exist_ok = True)
     with open(configpath + "/symlinks.ini", "w+") as file:
@@ -47,20 +63,6 @@ def pancake_write_config():
         for pair in config.items():
             file.write(pair[0] + " \t" + pair[1] + "\n")
         file.write("\n")
-
-
-def flatpak_list_apps():
-    results: list[str] = []
-    output_bytes = subprocess.check_output(['flatpak', 'list', '--app'])
-    output = output_bytes.decode('utf-8')
-    if len(output) == 0:
-        print("No apps installed")
-        return
-    splits = output.splitlines()
-    for line in splits:
-        results.append(line.split("\t")[1])
-    print(results)
-    return
 
 
 def flatpak_install(install: list[str]):
@@ -293,10 +295,8 @@ def main():
 
     if update:
         flatpak_update()
-    if symlinks: #temporary
-        #flatpak_symlinks()
-        #flatpak_list_apps()
-        pass
+    if symlinks:
+        pancake_generate_symlinks()
     if query:
         flatpak_query(inputs[0])
     elif install:
