@@ -97,8 +97,12 @@ def flatpak_install(install: list[str]):
         return
 
     # install
-    #process = Popen(['flatpak', 'install'] + results)
-    #process.wait()
+    process = Popen(['flatpak', 'install'] + results)
+    process.wait()
+
+    user_input = input("\nCreate symlinks? [Y/n] ")
+    if user_input.lower().strip() != "y":
+        return
 
     # update config
     for i in range(len(results)):
@@ -107,7 +111,9 @@ def flatpak_install(install: list[str]):
 
     # create symlinks
     for i in range(len(results)):
-        process = Popen('sudo echo "flatpak install ' + results[i] + '" >> /usr/local/bin/' + install[i], shell = True)
+        #print('sudo echo "flatpak install ' + results[i] + '" >> /usr/local/bin/' + install[i])
+        # echo 'flatpak install com.brave.Browser' | sudo tee -a /usr/local/bin/brave
+        process = Popen('echo "flatpak run ' + results[i] + '" | sudo tee /usr/local/bin/' + install[i], shell = True)
         process.wait()
         process1 = Popen('sudo chmod +x /usr/local/bin/' + install[i], shell = True)
         process1.wait()
@@ -153,8 +159,6 @@ def main():
     symlinks = False
     inputs: list[str] = []
 
-    print(os.path.expanduser('~'))
-    
     pancake_read_config()
 
     for arg in sys.argv[1:]:
