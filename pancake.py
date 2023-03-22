@@ -1,7 +1,11 @@
 import subprocess
 import sys
+import os
 from subprocess import Popen
 from functools import reduce
+
+
+config: dict[str, str] = dict()
 
 def testing():
     x: str = "discord"
@@ -15,6 +19,34 @@ def testing():
             #options.append()
 
     print(output)
+
+
+def pancake_generate_symlinks():
+    global config
+    print("TODO generate symlinks")
+
+
+def pancake_read_config():
+    global config
+    home = os.path.expanduser('~')
+    try:
+        with open(home + "/.config/pancake/symlinks.ini", "r") as file:
+            raw_config = file.readlines()
+        splitted = filter(lambda x: len(x) == 2 and x[0][0] != '#', map(lambda x: x.strip().split(' '), raw_config))
+        config = {x[0]: x[1] for x in splitted}
+    except IOError:
+        pass
+
+
+def pancake_write_config():
+    global config
+    configpath = os.path.expanduser('~') + "/.config/pancake"
+    os.makedirs(configpath, exist_ok = True)
+    with open(configpath + "/symlinks.ini", "w+") as file:
+        file.write("# This file is automatically formatted.\n# Any manual formatting will be ignored.\n\n")
+        for pair in config.items():
+            file.write(pair[0] + " \t" + pair[1] + "\n")
+        file.write("\n")
 
 
 def flatpak_list_apps():
@@ -32,6 +64,8 @@ def flatpak_list_apps():
 
 
 def flatpak_install(install: list[str]):
+    global config
+
     results: list[str] = []
 
     # first retrieve all queries
@@ -45,20 +79,43 @@ def flatpak_install(install: list[str]):
         results.append(splits[2])
     #for i in range(25):
     #    results.append("*" * i)
-    max_length_raw: int = reduce(lambda accum, item: len(item) if isinstance(accum, int) and len(item) > accum else accum, results, 0)
+    max_length_raw: int = reduce(lambda accum, item: len(item) if isinstance(accum, int) and len(item) > accum else accum, install, 0)
     max_length = max_length_raw // 8 + 2
     #note: length of a tab is 8 in the console
 
-
     # print the results and prompt
-    print(f"Package ({len(results)})\n")
-    for result in results:
-        num_tabs = max_length - (len(result) // 8)
-        print(result + '\t' * num_tabs + 'a')
+    header = f"Package ({len(results)})"
+    num_tabs = max_length - (len(header) // 8)
+    print(header + '\t'*num_tabs + "Application ID\n")
+    for i in range(len(install)):
+        name = install[i]
+        num_tabs = max_length - (len(name) // 8)
+        print(name + '\t'*num_tabs + results[i])
     print()
     user_input = input("Proceed with installation? [Y/n] ")
     if user_input.lower().strip() != "y":
         return
+
+    # install
+    #process = Popen(['flatpak', 'install'] + results)
+    #process.wait()
+
+    # update config
+    for i in range(len(results)):
+        config[install[i]] = results[i]
+    pancake_write_config()
+
+    # create symlinks
+    for i in range(len(results)):
+        process = Popen('sudo echo "flatpak install ' + results[i] + '" >> /usr/local/bin/' + install[i], shell = True)
+        process.wait()
+        process1 = Popen('sudo chmod +x /usr/local/bin/' + install[i], shell = True)
+        process1.wait()
+
+
+def flatpak_remove(remove: list[str]):
+    global config
+
 
 
 def flatpak_query(query: str):
@@ -95,6 +152,10 @@ def main():
     query = False
     symlinks = False
     inputs: list[str] = []
+
+    print(os.path.expanduser('~'))
+    
+    pancake_read_config()
 
     for arg in sys.argv[1:]:
 
