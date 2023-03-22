@@ -93,6 +93,7 @@ def pancake_write_config():
 
 
 def flatpak_install(install: list[str]):
+    global config
     global sym_config
 
     results: list[str] = []
@@ -137,11 +138,19 @@ def flatpak_install(install: list[str]):
     pancake_write_config()
 
     # create symlinks
+    home = os.path.expanduser('~')
+    os.makedirs(home + "/.config/pancake/bin", exist_ok = True)
     for i in range(len(results)):
-        process = Popen('echo "flatpak run ' + results[i] + '" | sudo tee /usr/local/bin/' + install[i], shell = True)
-        process.wait()
-        process1 = Popen('sudo chmod +x /usr/local/bin/' + install[i], shell = True)
-        process1.wait()
+        if config.get("use_pancake_bin") == "false":
+            process = Popen('echo "flatpak run ' + results[i] + '" | sudo tee /usr/local/bin/' + install[i], shell = True)
+            process.wait()
+            process1 = Popen('sudo chmod +x /usr/local/bin/' + install[i], shell = True)
+            process1.wait()
+        else:
+            process = Popen('echo "flatpak run ' + results[i] + '" | tee ' + home + "/.config/pancake/bin/" + install[i], shell = True)
+            process.wait()
+            process1 = Popen('chmod +x ' + home + "/.config/pancake/bin/" + install[i], shell = True)
+            process1.wait()
 
     print("\nPlease restart your session or open a new terminal for changes to take place")
 
@@ -189,11 +198,19 @@ def flatpak_remove(remove: list[str]):
     pancake_write_config()
 
     # remove symlinks
+    home = os.path.expanduser('~')
+    os.makedirs(home + "/.config/pancake/bin", exist_ok = True)
     for i in range(len(results)):
-        contents_raw = subprocess.check_output(['cat', '/usr/local/bin/' + remove[i]])
+        if config.get("use_pancake_bin") == "false":
+            contents_raw = subprocess.check_output(['cat', '/usr/local/bin/' + remove[i]])
+        else:
+            contents_raw = subprocess.check_output(['cat', home + '/.config/pancake/bin/' + remove[i]])
         contents: str = contents_raw.decode('utf-8').strip()
         if contents == "flatpak run " + results[i]:
-            process = Popen('sudo rm /usr/local/bin/' + remove[i], shell = True)
+            if config.get("use_pancake_bin") == "false":
+                process = Popen('sudo rm /usr/local/bin/' + remove[i], shell = True)
+            else: 
+                process = Popen('rm ' + home + "/.config/pancake/bin/" + remove[i], shell = True)
             process.wait()
             print(f"Removed symlink for '{remove[i]}'")
         else:
