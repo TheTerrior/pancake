@@ -4,8 +4,8 @@ import os
 from subprocess import Popen
 from functools import reduce
 
-
 config: dict[str, str] = dict()
+sym_config: dict[str, str] = dict()
 
 def testing():
     x: str = "discord"
@@ -22,7 +22,7 @@ def testing():
 
 
 def pancake_generate_symlinks():
-    global config
+    global sym_config
 
     results: list[str] = []
     output_bytes = subprocess.check_output(['flatpak', 'list', '--app'])
@@ -42,39 +42,58 @@ def pancake_generate_symlinks():
 
 def pancake_read_config():
     global config
+    global sym_config
 
     home = os.path.expanduser('~')
+
+    # read pancake config
     try:
-        with open(home + "/.config/pancake/symlinks.ini", "r") as file:
+        with open(home + "/.config/pancake/config.ini", "r") as file:
+            raw_config = file.readlines()
+        splitted = list(
+            filter(lambda x: len(x) == 2, 
+            map(lambda x: "".join(x.split()).split("="), 
+            filter(lambda x: x.strip()[0] != "#", raw_config))))
+        config = {x[0].lower(): x[1].lower() for x in splitted}
+    except IOError: #create a default config
+        configpath = os.path.expanduser('~') + "/.config/pancake"
+        os.makedirs(configpath, exist_ok = True)
+        with open(configpath + "/config.ini", "w+") as file:
+            file.write("use_pancake_bin = true")
+        config = {"use_pancake_bin": "true"}
+
+    # read active symlinks
+    try:
+        with open(home + "/.config/pancake/symlinksrc", "r") as file:
             raw_config = file.readlines()
         splitted = filter(lambda x: len(x) == 2 and x[0][0] != '#', map(lambda x: x.strip().split(), raw_config))
-        config = {x[0]: x[1] for x in splitted}
+        sym_config = {x[0]: x[1] for x in splitted}
     except IOError:
         pass
 
 
 def pancake_write_config():
-    global config
+    global sym_config
 
     configpath = os.path.expanduser('~') + "/.config/pancake"
     os.makedirs(configpath, exist_ok = True)
 
     names: list[str] = []
-    for pair in config.items():
+    for pair in sym_config.items():
         names.append(pair[0])
     max_length_raw: int = reduce(lambda accum, item: len(item) if isinstance(accum, int) and len(item) > accum else accum, names, 0)
     max_length = max_length_raw + 4 + (4 - max_length_raw % 4) #length of a tab is 4 in a file
 
-    with open(configpath + "/symlinks.ini", "w+") as file:
+    with open(configpath + "/symlinksrc", "w+") as file:
         file.write("# This file is automatically formatted.\n# Any manual formatting will be ignored.\n\n")
-        for pair in config.items():
+        for pair in sym_config.items():
             num_tabs = max_length - len(pair[0])
             file.write(pair[0] + " "*num_tabs + pair[1] + "\n")
         file.write("\n")
 
 
 def flatpak_install(install: list[str]):
-    global config
+    global sym_config
 
     results: list[str] = []
 
@@ -114,7 +133,7 @@ def flatpak_install(install: list[str]):
 
     # update config
     for i in range(len(results)):
-        config[install[i]] = results[i]
+        sym_config[install[i]] = results[i]
     pancake_write_config()
 
     # create symlinks
@@ -128,14 +147,14 @@ def flatpak_install(install: list[str]):
 
 
 def flatpak_remove(remove: list[str]):
-    global config
+    global sym_config
 
     results: list[str] = [] 
 
     # find all mappings
     for i in range(len(remove)):
-        if remove[i] in config:
-            results.append(config[remove[i]])
+        if remove[i] in sym_config:
+            results.append(sym_config[remove[i]])
         else:
             print(f"error: no matches found for '{remove[i]}'")
             return
@@ -166,7 +185,7 @@ def flatpak_remove(remove: list[str]):
 
     # update config
     for i in range(len(results)):
-        config.pop(remove[i])
+        sym_config.pop(remove[i])
     pancake_write_config()
 
     # remove symlinks
