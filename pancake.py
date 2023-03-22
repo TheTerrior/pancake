@@ -32,7 +32,7 @@ def pancake_read_config():
     try:
         with open(home + "/.config/pancake/symlinks.ini", "r") as file:
             raw_config = file.readlines()
-        splitted = filter(lambda x: len(x) == 2 and x[0][0] != '#', map(lambda x: x.strip().split(' '), raw_config))
+        splitted = filter(lambda x: len(x) == 2 and x[0][0] != '#', map(lambda x: x.strip().split(), raw_config))
         config = {x[0]: x[1] for x in splitted}
     except IOError:
         pass
@@ -77,11 +77,8 @@ def flatpak_install(install: list[str]):
             print(f"error: no matches found for '{query}'")
             return
         results.append(splits[2])
-    #for i in range(25):
-    #    results.append("*" * i)
     max_length_raw: int = reduce(lambda accum, item: len(item) if isinstance(accum, int) and len(item) > accum else accum, install, 0)
-    max_length = max_length_raw // 8 + 2
-    #note: length of a tab is 8 in the console
+    max_length = max_length_raw // 8 + 2 #length of a tab is 8 in the terminal
 
     # print the results and prompt
     header = f"Package ({len(results)})"
@@ -91,7 +88,8 @@ def flatpak_install(install: list[str]):
         name = install[i]
         num_tabs = max_length - (len(name) // 8)
         print(name + '\t'*num_tabs + results[i])
-    print()
+    print() #newline
+
     user_input = input("Proceed with installation? [Y/n] ")
     if user_input.lower().strip() != "y":
         return
@@ -111,17 +109,68 @@ def flatpak_install(install: list[str]):
 
     # create symlinks
     for i in range(len(results)):
-        #print('sudo echo "flatpak install ' + results[i] + '" >> /usr/local/bin/' + install[i])
-        # echo 'flatpak install com.brave.Browser' | sudo tee -a /usr/local/bin/brave
         process = Popen('echo "flatpak run ' + results[i] + '" | sudo tee /usr/local/bin/' + install[i], shell = True)
         process.wait()
         process1 = Popen('sudo chmod +x /usr/local/bin/' + install[i], shell = True)
         process1.wait()
 
+    print("\nPlease restart your session or open a new terminal for changes to take place")
+
 
 def flatpak_remove(remove: list[str]):
     global config
 
+    results: list[str] = [] 
+
+    # find all mappings
+    for i in range(len(remove)):
+        if remove[i] in config:
+            results.append(config[remove[i]])
+        else:
+            print(f"error: no matches found for '{remove[i]}'")
+            return
+    max_length_raw: int = reduce(lambda accum, item: len(item) if isinstance(accum, int) and len(item) > accum else accum, remove, 0)
+    max_length = max_length_raw // 8 + 2 #length of a tab is 8 in the terminal
+
+    # print the results and prompt
+    header = f"Package ({len(results)})"
+    num_tabs = max_length - (len(header) // 8)
+    print(header + '\t'*num_tabs + "Application ID\n")
+    for i in range(len(remove)):
+        name = remove[i]
+        num_tabs = max_length - (len(name) // 8)
+        print(name + '\t'*num_tabs + results[i])
+    print() #newline
+
+    user_input = input(":: Do you want to remove these packages? [Y/n] ")
+    if user_input.lower().strip() != "y":
+        return
+
+    # uninstall
+    process = Popen(['flatpak', 'uninstall'] + results)
+    process.wait()
+
+    user_input = input("\nRemove symlinks? [Y/n] ")
+    if user_input.lower().strip() != "y":
+        return
+
+    # update config
+    for i in range(len(results)):
+        config.pop(remove[i])
+    pancake_write_config()
+
+    # remove symlinks
+    for i in range(len(results)):
+        contents_raw = subprocess.check_output(['cat', '/usr/local/bin/' + remove[i]])
+        contents: str = contents_raw.decode('utf-8').strip()
+        if contents == "flatpak run " + results[i]:
+            process = Popen('sudo rm /usr/local/bin/' + remove[i], shell = True)
+            process.wait()
+            print(f"Removed symlink for '{remove[i]}'")
+        else:
+            print(f"error: contents of '{remove[i]}' were:\n{contents}\n===END===")
+
+    print("\nPlease restart your session or open a new terminal for changes to take place")
 
 
 def flatpak_query(query: str):
@@ -246,13 +295,14 @@ def main():
         flatpak_update()
     if symlinks: #temporary
         #flatpak_symlinks()
-        flatpak_list_apps()
+        #flatpak_list_apps()
+        pass
     if query:
         flatpak_query(inputs[0])
     elif install:
         flatpak_install(inputs)
-    #elif remove:
-        #flatpak_uninstall(inputs)
+    elif remove:
+        flatpak_remove(inputs)
 
         
 if __name__ == "__main__":
