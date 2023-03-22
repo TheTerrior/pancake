@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from subprocess import Popen
+from functools import reduce
 
 def testing():
     x: str = "discord"
@@ -16,8 +17,24 @@ def testing():
     print(output)
 
 
+def flatpak_list_apps():
+    results: list[str] = []
+    output_bytes = subprocess.check_output(['flatpak', 'list', '--app'])
+    output = output_bytes.decode('utf-8')
+    if len(output) == 0:
+        print("No apps installed")
+        return
+    splits = output.splitlines()
+    for line in splits:
+        results.append(line.split("\t")[1])
+    print(results)
+    return
+
+
 def flatpak_install(install: list[str]):
     results: list[str] = []
+
+    # first retrieve all queries
     for query in install:
         output_bytes = subprocess.check_output(['flatpak', 'search', query])
         line = output_bytes.decode('utf-8').splitlines()[0]
@@ -26,9 +43,18 @@ def flatpak_install(install: list[str]):
             print(f"error: no matches found for '{query}'")
             return
         results.append(splits[2])
+    #for i in range(25):
+    #    results.append("*" * i)
+    max_length_raw: int = reduce(lambda accum, item: len(item) if isinstance(accum, int) and len(item) > accum else accum, results, 0)
+    max_length = max_length_raw // 8 + 2
+    #note: length of a tab is 8 in the console
+
+
+    # print the results and prompt
     print(f"Package ({len(results)})\n")
     for result in results:
-        print(result)
+        num_tabs = max_length - (len(result) // 8)
+        print(result + '\t' * num_tabs + 'a')
     print()
     user_input = input("Proceed with installation? [Y/n] ")
     if user_input.lower().strip() != "y":
@@ -52,8 +78,10 @@ def help():
           + "\t-V --version\n"
           + "\t-s --install\t[packages]\n"
           + "\t-r --remove\t[packages]\n"
+          + "\t   --uninstall\t[packages]\n"
           + "\t-u --update\t\n"
           + "\t-q --query\t<package>\n"
+          + "\t-l --symlinks\n"
           )
 
 def version():
@@ -65,6 +93,7 @@ def main():
     install = False
     remove = False
     query = False
+    symlinks = False
     inputs: list[str] = []
 
     for arg in sys.argv[1:]:
@@ -99,10 +128,12 @@ def main():
                 update = True
             case "--install":
                 install = True
-            case "--remove":
+            case "--remove" | "--uninstall":
                 remove = True
             case "--query":
                 query = True
+            case "--symlinks":
+                symlinks = True
             case _:
                 if arg[0] == "-":
                     if len(arg) == 1:
@@ -124,6 +155,8 @@ def main():
                                 remove = True
                             case "q":
                                 query = True
+                            case "l":
+                                symlinks = True
                             case _:
                                 print(f"error: unknown flag '{flag}'")
                                 return
@@ -146,10 +179,15 @@ def main():
 
     if update:
         flatpak_update()
-    elif query:
+    if symlinks: #temporary
+        #flatpak_symlinks()
+        flatpak_list_apps()
+    if query:
         flatpak_query(inputs[0])
     elif install:
         flatpak_install(inputs)
+    #elif remove:
+        #flatpak_uninstall(inputs)
 
         
 if __name__ == "__main__":
