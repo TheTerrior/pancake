@@ -58,10 +58,18 @@ def pancake_write_config():
 
     configpath = os.path.expanduser('~') + "/.config/pancake"
     os.makedirs(configpath, exist_ok = True)
+
+    names: list[str] = []
+    for pair in config.items():
+        names.append(pair[0])
+    max_length_raw: int = reduce(lambda accum, item: len(item) if isinstance(accum, int) and len(item) > accum else accum, names, 0)
+    max_length = max_length_raw + 4 + (4 - max_length_raw % 4) #length of a tab is 4 in a file
+
     with open(configpath + "/symlinks.ini", "w+") as file:
         file.write("# This file is automatically formatted.\n# Any manual formatting will be ignored.\n\n")
         for pair in config.items():
-            file.write(pair[0] + " \t" + pair[1] + "\n")
+            num_tabs = max_length - len(pair[0])
+            file.write(pair[0] + " "*num_tabs + pair[1] + "\n")
         file.write("\n")
 
 
@@ -211,6 +219,7 @@ def main():
     inputs: list[str] = []
 
     pancake_read_config()
+    pancake_write_config()
 
     for arg in sys.argv[1:]:
 
